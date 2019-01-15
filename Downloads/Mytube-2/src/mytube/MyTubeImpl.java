@@ -33,21 +33,47 @@ import java.util.StringTokenizer;
 import java.util.Vector;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.lang.String;
+import java.util.AbstractCollection;
+import java.util.Collection;
+import mytube.Content;
 
 public class MyTubeImpl extends UnicastRemoteObject implements MyTubeInterface{
 
-    List<String> comodin = new ArrayList();
-    
+    List<Content> comodin = new ArrayList<>();
     Map<Integer, Content> contents = new HashMap();
     Map<String, Vector> topics=new HashMap();
-    private String dir = "//Users//Nya//Servidor//";
+    private String dir = "//Users//Nya//Servidor//"; //Mirar com s'agafa el document
     private static Vector clientList;
     String rmi;
     
     public MyTubeImpl(String reg) throws RemoteException{super();clientList=new Vector();this.rmi=reg;}
 
-
-    
+    public void recoverServer(String name) {
+        URL url;
+        try {
+            url = new URL ("http://localhost:8080/myRESTweb/rest/server/"+name);
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setDoOutput(true);
+            conn.setRequestMethod("GET");
+            conn.setRequestProperty("Accept", "application/json");
+            
+            conn.getResponseCode();
+            BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+            String output = br.readLine();
+            conn.disconnect();
+            
+            Gson g = new Gson();
+            Content[] contentsArray = g.fromJson(output, Content[].class);
+            comodin = new ArrayList<>(Arrays.asList(contentsArray));
+            for(Content c : comodin) {
+                contents.put(c.getKey(), c);
+            }
+            System.out.println(contents+"\n");
+			
+            } catch (Exception e) { 
+            }
+    }
     @Override
     public void registerForCallback(CallbackInterface callbackclientObject,String topic) throws RemoteException {
         clientList=new Vector();
@@ -60,7 +86,6 @@ public class MyTubeImpl extends UnicastRemoteObject implements MyTubeInterface{
         topics.put(topic, clientList);
         System.out.println(topics);
     } 
-   
     private synchronized void doCallbacks(String title, String topic) throws RemoteException {
         clientList= topics.get(topic);
         if(clientList!=null){
@@ -73,8 +98,9 @@ public class MyTubeImpl extends UnicastRemoteObject implements MyTubeInterface{
     @Override
     public int getContentKey (Content content) throws RemoteException {  
         URL url;
+        System.out.print(content);
         try {
-            content.setServer(this.toString());
+            content.setServer(this.rmi);
                         
             url = new URL ("http://localhost:8080/myRESTweb/rest/content");
             System.out.println("Open connection");
@@ -84,7 +110,7 @@ public class MyTubeImpl extends UnicastRemoteObject implements MyTubeInterface{
             conn.setRequestProperty("Content-Type", "application/json");
 
             Gson ret = new Gson();
-            String input=ret.toJson(content.getDescription());
+            String input=ret.toJson(content);
             OutputStream os= conn.getOutputStream();
             os.write(input.getBytes());
             os.flush();
@@ -126,7 +152,7 @@ public class MyTubeImpl extends UnicastRemoteObject implements MyTubeInterface{
             os.flush();
             
             int status = conn.getResponseCode();
-            System.out.println("status: "+status);
+            System.out.println("status register client: "+status);
             conn.disconnect();
             if(status==201) {
                 return 201;
@@ -161,20 +187,15 @@ public class MyTubeImpl extends UnicastRemoteObject implements MyTubeInterface{
         return content.getKey(); 
 
     }
-    
     @Override
-    public byte[] download(String title, String username) throws RemoteException {  
+    public byte[] download(Integer key, String username) throws RemoteException {  
         try {
-            Content content = getContent(title);
-            if(content==null) {
-                return null;
-            }
-            if(this.rmi.equals(content.getServer())) {
-                byte[] bytes = Files.readAllBytes(new File(dir+content.getKey()+"//"+content.getFile()).toPath());
+            if(this.rmi.equals(contents.get(key).getServer())) {
+                byte[] bytes = Files.readAllBytes(new File(dir+key.toString()+"//"+contents.get(key).getDescription()+".mp4").toPath());
                 return bytes;
             }else {
-                MyTubeInterface mt2 = (MyTubeInterface)Naming.lookup(content.getServer());
-                byte[] bytes=mt2.download(title, username);
+                MyTubeInterface mt2 = (MyTubeInterface)Naming.lookup(contents.get(key).getServer());
+                byte[] bytes=mt2.download(key, username);
                 return bytes;
             }      
             
@@ -186,42 +207,110 @@ public class MyTubeImpl extends UnicastRemoteObject implements MyTubeInterface{
             return null;
         }
     }
-
     @Override
-    public List<String> getContents(String topic) throws RemoteException {
-        comodin.clear();
-        for(Content content : contents.values()) {
+    public List<Content> getAllContents() throws RemoteException {
+        URL url;
+        try {
+            url = new URL ("http://localhost:8080/myRESTweb/rest/contents");
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setDoOutput(true);
+            conn.setRequestMethod("GET");
+            conn.setRequestProperty("Accept", "application/json");
             
-            if(content.getTopic().equals(topic)){
-                comodin.add(content.getDescription());
+            if(conn.getResponseCode() != 200) {
+		return new ArrayList<>();
             }
+            BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+            String output = br.readLine();
+            conn.disconnect();
             
-        }
-	return comodin;
+            Gson g = new Gson();
+            Content[] contentsArray = g.fromJson(output, Content[].class);
+            comodin = new ArrayList<>(Arrays.asList(contentsArray));
+            return comodin;
+			
+            } catch (Exception e) { 
+                return new ArrayList<>(); 
+            }
     }
     @Override
-    public List<String> getContents2(String description) throws RemoteException {
-        comodin.clear();
-        for(Content content : contents.values()) {
+    public List<Content> getContents(String topic) throws RemoteException {
+        URL url;
+        try {
+            url = new URL ("http://localhost:8080/myRESTweb/rest/contents/topic/"+topic);
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setDoOutput(true);
+            conn.setRequestMethod("GET");
+            conn.setRequestProperty("Accept", "application/json");
             
-            if(content.getDescription().contains(description)){
-                comodin.add(content.getDescription());
+            if(conn.getResponseCode() != 200) {
+		return new ArrayList<>();
             }
+            BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+            String output = br.readLine();
+            conn.disconnect();
             
-        }
-	return comodin;
+            Gson g = new Gson();
+            Content[] contentsArray = g.fromJson(output, Content[].class);
+            comodin = new ArrayList<>(Arrays.asList(contentsArray));
+            return comodin;
+			
+            } catch (Exception e) { 
+                return new ArrayList<>(); 
+            }
     }
     @Override
-    public List<String> getContents3(String username) throws RemoteException {
-        comodin.clear();
-        for(Content content : contents.values()) {
+    public List<Content> getContents2(String description) throws RemoteException {
+        URL url;
+        try {
+            url = new URL ("http://localhost:8080/myRESTweb/rest/contents/desc/"+description);
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setDoOutput(true);
+            conn.setRequestMethod("GET");
+            conn.setRequestProperty("Accept", "application/json");
             
-            if(content.getClient().equals(username)){
-                comodin.add(content.getDescription());
+            if(conn.getResponseCode() != 200) {
+		return new ArrayList<>();
             }
+            BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+            String output = br.readLine();
+            conn.disconnect();
             
-        }
-	return comodin;
+            Gson g = new Gson();
+            Content[] contentsArray = g.fromJson(output, Content[].class);
+            comodin = new ArrayList<>(Arrays.asList(contentsArray));
+            return comodin;
+			
+            } catch (Exception e) { 
+                return new ArrayList<>(); 
+            }
+    }
+    @Override
+    public List<Content> getContents3(String username) throws RemoteException {
+        URL url;
+        try {
+            url = new URL ("http://localhost:8080/myRESTweb/rest/contents/client/"+username);
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setDoOutput(true);
+            conn.setRequestMethod("GET");
+            conn.setRequestProperty("Accept", "application/json");
+            
+            if(conn.getResponseCode() != 201) {
+		return new ArrayList<>();
+            }
+            BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+            String output = br.readLine();
+            System.out.println("Output: "+output);
+            conn.disconnect();
+            
+            Gson g = new Gson();
+            Content[] contentsArray = g.fromJson(output, Content[].class);
+            comodin = new ArrayList<>(Arrays.asList(contentsArray));
+            return comodin;
+			
+            } catch (Exception e) { 
+                return new ArrayList<>(); 
+            }  
     }
     @Override
     public Content getContent(String title) throws RemoteException {  
@@ -233,24 +322,45 @@ public class MyTubeImpl extends UnicastRemoteObject implements MyTubeInterface{
         return null;
     }
     @Override
-    public int modifyTitle (String title, String new_title, String username) throws RemoteException{
-        Content content=getContent(title);
-        if(content.getClient().equals(username)) {
-            content.setDescription(new_title);
-            contents.remove(content.getKey());
-            contents.put(content.getKey(), content);
-            return 0;
+    public void modifyTitle (Integer key, String new_title, String username) throws RemoteException{
+    URL url;
+        try {
+            url = new URL("http://localhost:8080/myRESTweb/rest/content/"+username+"/"+key+"/edit");
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setDoOutput(true);
+            conn.setRequestMethod("PUT");
+            conn.setRequestProperty("Content-Type", "application/json");
+            
+            OutputStream os= conn.getOutputStream();
+            os.write(new_title.getBytes());
+            os.flush();
+            conn.getResponseCode();
+            conn.disconnect(); 
+            
+        } catch (MalformedURLException ex ) {
+            Logger.getLogger(MyTubeImpl.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (IOException ex) {
+            Logger.getLogger(MyTubeImpl.class.getName()).log(Level.SEVERE, null, ex);
         }
-        return -1;
     }
     @Override
-    public int deleteContent (String title, String username) throws RemoteException{
-        Content content=getContent(title);
-        if(content.getClient().equals(username)) {
-            contents.remove(content.getKey());
-            return 0;
+    public void deleteContent (Integer key, String username) throws RemoteException{
+        URL url;
+        try {
+            url = new URL ("http://localhost:8080/myRESTweb/rest/content/"+key+"/delete");
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setDoOutput(true);
+            conn.setRequestMethod("DELETE");
+            conn.setRequestProperty("Content-Type", "application/json");
+            
+            int status = conn.getResponseCode();
+            conn.disconnect();
+        
+        } catch (MalformedURLException ex) {
+            Logger.getLogger(MyTubeImpl.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (IOException ex) {
+            Logger.getLogger(MyTubeImpl.class.getName()).log(Level.SEVERE, null, ex);
         }
-        return -1;
     }
 }
 

@@ -63,7 +63,7 @@ public class MyTubeClient {
                 {
                     client.getContents2(mt);
                 }
-                //Obtenir tots els continguts
+                //Obtenir per topic
                 if(input.equals("4"))
                 {  
                     client.getContents(mt);

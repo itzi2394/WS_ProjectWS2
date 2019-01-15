@@ -1,13 +1,12 @@
 package mytube;
 
 import java.io.Serializable;
-import java.net.Inet4Address;
 import java.net.UnknownHostException;
 
 
 public class Content implements Serializable{
     int key;
-    private String username;
+    private String client;
     private String server;
     private String description;
     private String topic;
@@ -17,11 +16,11 @@ public class Content implements Serializable{
 
     public Content (){}
     
-    public Content(String description, String topic, String username, String file) throws UnknownHostException {
+    public Content(String description, String topic, String client, String file) throws UnknownHostException {
         this.description = description;
         this.topic=topic;
         this.file=file;
-        this.username=username;
+        this.client=client;
 
     }
 
@@ -37,7 +36,7 @@ public class Content implements Serializable{
         this.description = description;
     }
     public void setClient(String username) {
-        this.username = username;
+        this.client = username;
     }
     public void setServer(String server){
     	this.server = server;
@@ -56,7 +55,7 @@ public class Content implements Serializable{
         return topic;
     }
     public String getClient() {
-        return username;
+        return client;
     } 
     public String getServer(){
     	return server;
@@ -67,8 +66,7 @@ public class Content implements Serializable{
     @Override
     public String toString(){
 		return "Content: [ " + this.key + " , " + this.description + " , " + this.topic +
-					                   " , " + this.username + " , " + this.server + " ]";
+					                   " , " + this.client + " , " + this.server + " ]";
     	
     }
-
 }

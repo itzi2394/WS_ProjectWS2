@@ -52,20 +52,25 @@ public class Client implements Serializable{
                     String file = scanIn.nextLine();
                     
                     byte[] bytes = Files.readAllBytes(new File(dir+file).toPath());
-                    Content content=new Content(description,topic,this.getUsername(),file);
+                    Content content=new Content(description,topic,this.username,file);
                     
                     System.out.println("You are uploading the content "+description+"...");
                     int key=mt.upload(content,bytes);
                     System.out.println("Content uploaded successfully!");
     }
     public void downloadContent (MyTubeInterface mt) throws IOException {
-        System.out.println("Introduce the title:");
-        String title = scanIn.nextLine();
-        byte[] bytes=mt.download(title, this.username);
-        Content content=mt.getContent(title);
-        if(content!=null){
-            System.out.println("You are uploading the content with title "+title+"...");
-            Path directory = Paths.get(dir+content.getFile());
+        List<Content> list=mt.getAllContents(); Content content=new Content();
+        System.out.println("The contents to download are: "+list+".\nWhat content do you want to download?");
+        Integer key=Integer.parseInt(scanIn.nextLine());
+        byte[] bytes=mt.download(key, this.username);
+        for(Content c : list) {
+            if(c.getKey()==key){
+                content=c;
+                break;
+            }
+        }
+        if(bytes!=null){
+            Path directory = Paths.get(dir+content.getDescription()+".mp4");
             Files.write(directory, bytes);
             System.out.println("Content downloaded successfully! ");
         }else{
@@ -76,6 +81,9 @@ public class Client implements Serializable{
         System.out.println("Introduce the description of the content");
         String desc = scanIn.nextLine();
         System.out.println(mt.getContents2(desc));
+    }
+    public void getAllContents (MyTubeInterface mt) throws IOException {
+        System.out.println(mt.getAllContents());
     }
     public void getContents (MyTubeInterface mt) throws IOException {
         System.out.println("Introduce the topic of the content");
@@ -88,26 +96,35 @@ public class Client implements Serializable{
         CallbackInterface callbackObj=new CallbackImpl();
         mt.registerForCallback(callbackObj,topic);
     }   
-     public void modifyTitle (MyTubeInterface mt) throws IOException {
-        System.out.println("These are you contents: "+mt.getContents3(this.username)+"\nWhat content do you want to modify?");
-        String title=scanIn.nextLine();
+     public int modifyTitle (MyTubeInterface mt) throws IOException {
+        List<Content> mycontents=mt.getContents3(this.username);
+        System.out.println("These are you contents: "+mycontents+"\nWhat content do you want to modify?");
+        Integer key=Integer.parseInt(scanIn.nextLine());
         System.out.println("Introduce the new name");
         String title_new = scanIn.nextLine();
-        int x= mt.modifyTitle(title, title_new, this.username);
-        if(x!=-1){
-            System.out.println("Content modified succesfully!");
-        }else{
-            System.out.println("You can not modify the content!");
+        for(Content content : mycontents) {
+            if(content.key==key){
+                mt.modifyTitle(key, title_new, username);
+                System.out.println("Content modified succesfully");
+                return 0;
+            }
         }
+        System.out.println("You can not modify the content!");
+        return -1;
+
     }   
-    public void deleteContent (MyTubeInterface mt) throws IOException {
-        System.out.println("These are you contents: "+mt.getContents3(this.username)+"\nWhat content do you want to delete?");
-        String title=scanIn.nextLine();
-        int x= mt.deleteContent(title, this.username);
-        if(x!=-1) {
-            System.out.println("Content deleted succesfully!");
-        }else{
-            System.out.println("You can not delete the content!");
+    public int deleteContent (MyTubeInterface mt) throws IOException {
+        List<Content> mycontents=mt.getContents3(this.username);
+        System.out.println("These are you contents: "+mycontents+"\nWhat content do you want to delete?");
+        Integer key=Integer.parseInt(scanIn.nextLine());
+        for(Content content : mycontents) {
+            if(content.key==key){
+                mt.deleteContent(key, username);
+                System.out.println("Content deleted succesfully");
+                return 0;
+            }
         }
+        System.out.println("You can not delete the content!");
+        return -1;
     } 
 }

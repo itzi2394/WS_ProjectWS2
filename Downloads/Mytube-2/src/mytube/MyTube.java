@@ -17,13 +17,14 @@ public class MyTube {
             String port = scanIn.nextLine();
             
             
-            
+           
             Registry registry = LocateRegistry.createRegistry(Integer.parseInt(port));
             String reg = "rmi://127.0.0.1:"+port+"/"+name;
             MyTubeImpl server=new MyTubeImpl(reg);
             registry.rebind(name, server);
             
-            System.out.println("Server "+name+" was succesfully created on port "+port+"."); 
+            System.out.println("Server "+name+" was succesfully created on port "+port+", and has recovered contents:\n"); 
+            server.recoverServer(name);
             
         }catch (RemoteException ex){
             System.err.print("Server can not be created. Please, check the parameters\n");
